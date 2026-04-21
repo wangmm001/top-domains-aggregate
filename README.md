@@ -27,7 +27,7 @@ youtube.com,4,0.834334,cloudflare-radar|crux|tranco|umbrella
 only-in-umbrella.test,1,0.000001,umbrella
 ```
 
-- `domain` — lowercase, ASCII. CrUX origins (`https://www.example.com`) have scheme stripped + leading `www.` removed; sub-domains (e.g. `en.wikipedia.org`) are kept as-is (no PSL yet).
+- `domain` — lowercase, ASCII, **reduced to registrable form (eTLD+1)** via the Mozilla [Public Suffix List](https://publicsuffix.org/). So `en.wikipedia.org` → `wikipedia.org`, `https://www.google.com` → `google.com`. Private PSL entries are honored: `blog.github.io` stays as-is because `github.io` is itself a public suffix (user-content hosting), so `blog` is the registered label.
 - `count` — integer 1–5 = number of distinct input lists the domain appears in.
 - `score` — **rank-fusion score**, `sum(1/rank_in_list_i)` for each list the domain is in. 6 decimal places. Larger = more broadly popular across lists.
 - `lists` — alphabetically sorted, `|`-separated source names.
@@ -68,9 +68,9 @@ Fetched from these `current` files at aggregation time:
 
 The first 4 are direct 1M-domain lists. CrUX's 1M global list uses `rank` as a **magnitude bucket** (1000/10000/100000/1000000), not an ordinal — all ~1M rows are treated as "present in CrUX" regardless of bucket.
 
-## Known simplifications (v1)
+## Known simplifications
 
-- **No PSL normalization yet**: we don't reduce `en.wikipedia.org` → `wikipedia.org` using the Public Suffix List. Most well-known brands (`google.com`, `facebook.com`, …) already appear in the same shape across all 5 sources, so the count=5 tier is clean. Sub-domain-heavy CrUX entries may under-merge with the registrable-domain-centric other lists. A v2 could pull in `wangmm001/public-suffix-list-cache` to do full normalization.
+- **PSL is the "public suffix" snapshot of the day we ran**: aggregator fetches `raw.githubusercontent.com/wangmm001/public-suffix-list-cache/main/data/current.dat.gz` at the start of each run. If that repo's cron is behind by a day, we use a slightly stale PSL. Trivial in practice.
 - **IDN**: ASCII (punycode) vs Unicode inconsistencies across sources are not reconciled. Rare for top domains.
 
 ## Consume
