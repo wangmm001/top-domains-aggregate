@@ -14,22 +14,45 @@ data/
 
 ## Format
 
-CSV with exactly 3 columns:
+CSV with exactly 4 columns:
 
 ```
-domain,count,lists
-google.com,5,cloudflare-radar|crux|majestic|tranco|umbrella
-youtube.com,5,cloudflare-radar|crux|majestic|tranco|umbrella
-github.io,4,cloudflare-radar|majestic|tranco|umbrella
+domain,count,score,lists
+google.com,5,3.001001,cloudflare-radar|crux|majestic|tranco|umbrella
+facebook.com,5,2.501001,cloudflare-radar|crux|majestic|tranco|umbrella
 ...
-only-in-umbrella.test,1,umbrella
+003ms.ru,5,0.000015,cloudflare-radar|crux|majestic|tranco|umbrella
+youtube.com,4,0.834334,cloudflare-radar|crux|tranco|umbrella
+...
+only-in-umbrella.test,1,0.000001,umbrella
 ```
 
-- `domain` — lowercase, ASCII. For CrUX origins (`https://www.example.com`), `www.` is stripped; sub-domains (e.g. `en.wikipedia.org`) are kept as-is.
+- `domain` — lowercase, ASCII. CrUX origins (`https://www.example.com`) have scheme stripped + leading `www.` removed; sub-domains (e.g. `en.wikipedia.org`) are kept as-is (no PSL yet).
 - `count` — integer 1–5 = number of distinct input lists the domain appears in.
-- `lists` — alphabetically sorted, `|`-separated list of source names.
+- `score` — **rank-fusion score**, `sum(1/rank_in_list_i)` for each list the domain is in. 6 decimal places. Larger = more broadly popular across lists.
+- `lists` — alphabetically sorted, `|`-separated source names.
 
-Rows sorted by `(count DESC, domain ASC)`. Full output — includes domains with count=1.
+Rows sorted by `(count DESC, score DESC, domain ASC)`. Full output — includes domains with count=1.
+
+### How the `score` is computed
+
+Each list contributes `1/rank` to a domain's score, where `rank` depends on the list's nature:
+
+| List | Rank used | Why |
+|---|---|---|
+| umbrella | true ordinal 1–1,000,000 | ordered list |
+| tranco | true ordinal 1–1,000,000 | ordered list |
+| majestic | `GlobalRank` column | ordered list |
+| cloudflare-radar | `1,000,000` (worst-case) | Cloudflare top-1M bucket is **unordered** |
+| crux | the `rank` value (1000 / 10000 / 100000 / 1000000) | CrUX publishes **magnitude buckets**, not ordinal ranks |
+
+So `google.com` at Umbrella rank 1, Tranco rank 1, Majestic rank 1, Cloudflare membership, CrUX bucket 1000:
+`score = 1 + 1 + 1 + 1e-6 + 1e-3 ≈ 3.001001`
+
+A bottom-of-list-everywhere domain:
+`score ≈ 1e-6 * 5 = 5e-6`, so it ranks last within its count tier.
+
+This is a "reciprocal rank fusion" (RRF) style score — top-1 in a list dominates; membership in an unordered list adds a tiny nudge; CrUX buckets weight proportionally to how deep the bucket is.
 
 ## Input lists
 
@@ -53,14 +76,18 @@ The first 4 are direct 1M-domain lists. CrUX's 1M global list uses `rank` as a *
 ## Consume
 
 ```bash
-# Top 50 today
-curl -L https://raw.githubusercontent.com/wangmm001/top-domains-aggregate/main/data/current.csv.gz | zcat | head -50
+# Top 50 hottest today (count=5 + highest score)
+curl -L https://raw.githubusercontent.com/wangmm001/top-domains-aggregate/main/data/current.csv.gz | zcat | head -51
 
-# Count distribution
-curl -L https://raw.githubusercontent.com/wangmm001/top-domains-aggregate/main/data/current.csv.gz | zcat | cut -d, -f2 | tail -n +2 | sort | uniq -c | sort -rn
+# Everything in all 5 lists (the universally-popular tier), sorted by score
+curl -L https://raw.githubusercontent.com/wangmm001/top-domains-aggregate/main/data/current.csv.gz | zcat | awk -F, 'NR==1 || $2==5'
 
-# Everything in all 5 lists
-curl -L https://raw.githubusercontent.com/wangmm001/top-domains-aggregate/main/data/current.csv.gz | zcat | awk -F, '$2==5'
+# Count distribution (needs python, shell cut misparses CSV-quoted commas)
+curl -L https://raw.githubusercontent.com/wangmm001/top-domains-aggregate/main/data/current.csv.gz | zcat | python3 -c "
+import csv, sys
+from collections import Counter
+c = Counter(r['count'] for r in csv.DictReader(sys.stdin))
+for k in sorted(c, key=int, reverse=True): print(f'{k}: {c[k]}')"
 ```
 
 ## License
