@@ -18,8 +18,8 @@ CSV with exactly 4 columns:
 
 ```
 domain,count,score,lists
-google.com,6,0.066518,cloudflare-radar|common-crawl|crux|majestic|tranco|umbrella
-youtube.com,5,0.049075,cloudflare-radar|common-crawl|crux|tranco|umbrella
+google.com,6,0.065998,cloudflare-radar|common-crawl|crux|majestic|tranco|umbrella
+youtube.com,6,0.055934,cloudflare-radar|common-crawl|crux|majestic|tranco|umbrella
 ...
 cc-only.example,1,0.000943,common-crawl
 only-in-umbrella.test,1,0.000001,umbrella
@@ -100,4 +100,4 @@ Scaffolding: MIT. Derived data is a join of six upstream lists — each retains 
 
 Daily GitHub Actions cron (05:30 UTC) calls `wangmm001/feedcache`'s reusable workflow with `source: aggregate-top-domains`. That step `pip install`s feedcache, runs `feedcache aggregate-top-domains data/`, which fetches the 6 raw URLs above, computes the aggregate in memory, and writes `data/YYYY-MM-DD.csv.gz` + `data/current.csv.gz`. Atomic: any fetch failure aborts before writing. Deterministic gzip + `git diff --cached --quiet` means no commit on days where upstream content hasn't changed.
 
-Cron time 05:30 UTC is chosen to run **after** all 6 input repos have completed their daily updates (03:30 / 03:45 / 04:00 / 04:15 / 05:00 / 05:15 UTC respectively — the crux mirror at 05:00 is the latest of the original five).
+Cron time 05:30 UTC is chosen to run **after** all 6 input repos have completed their daily updates (03:30 umbrella, 03:45 tranco, 04:00 cloudflare-radar, 04:15 majestic, 04:30 common-crawl-ranks, 05:00 crux-mirror) — the crux mirror at 05:00 is the latest of the six.
