@@ -27,14 +27,14 @@ only-in-umbrella.test,1,0.000001,umbrella
 
 - `domain` — lowercase, ASCII, **reduced to registrable form (eTLD+1)** via the Mozilla [Public Suffix List](https://publicsuffix.org/). So `en.wikipedia.org` → `wikipedia.org`, `https://www.google.com` → `google.com`. Private PSL entries are honored: `blog.github.io` stays as-is because `github.io` is itself a public suffix (user-content hosting), so `blog` is the registered label.
 - `count` — integer 1–6 = number of distinct input lists the domain appears in.
-- `score` — **rank-fusion score**, `sum(1/rank_in_list_i)` for each list the domain is in. 6 decimal places. Larger = more broadly popular across lists.
+- `score` — **smoothed rank-fusion score**, `sum(1/(60+rank_in_list_i))` for each list the domain is in. 6 decimal places. Larger = more broadly popular across lists.
 - `lists` — alphabetically sorted, `|`-separated source names.
 
 Rows sorted by `(count DESC, score DESC, domain ASC)`. Full output — includes domains with count=1.
 
 ### How the `score` is computed
 
-Each list contributes `1/rank` to a domain's score, where `rank` depends on the list's nature:
+Each list contributes `1 / (60 + rank)` to a domain's score, where `rank` depends on the list's nature (see the table above). The constant `60` is a smoothing term: it damps the dominance of rank-1 entries so the score gap between rank 1 and rank 1000 is ~18× rather than 1000×.
 
 | List | Rank used | Why |
 |---|---|---|
@@ -45,13 +45,14 @@ Each list contributes `1/rank` to a domain's score, where `rank` depends on the 
 | crux | the `rank` value (1000 / 10000 / 100000 / 1000000) | CrUX publishes **magnitude buckets**, not ordinal ranks |
 | common-crawl | `rank` column (harmonicc_pos) | ordered list — CC's webgraph Harmonic Centrality is a true ordinal 1–1,000,000 |
 
-So `google.com` at Umbrella rank 1, Tranco rank 1, Majestic rank 1, Cloudflare membership, CrUX bucket 1000, CC rank 1:
-`score = 1 + 1 + 1 + 1e-6 + 1e-3 + 1 ≈ 3.001001 + 1 = 4.001001`
+So `google.com` at Umbrella rank 1, Tranco rank 1, Majestic rank 1, common-crawl rank 1, Cloudflare membership (rank assigned 1,000,000 because the bucket is unordered), CrUX bucket 1000:
 
-A bottom-of-list-everywhere domain:
-`score ≈ 1e-6 * 6 = 6e-6`, so it ranks last within its count tier.
+`score = 4/(60+1) + 1/(60+1,000,000) + 1/(60+1000) ≈ 0.066518`
 
-This is a "reciprocal rank fusion" (RRF) style score — top-1 in a list dominates; membership in an unordered list adds a tiny nudge; CrUX buckets weight proportionally to how deep the bucket is.
+A bottom-of-list-everywhere domain (e.g. rank 1,000,000 in every source):
+`score = 6 / (60 + 1,000,000) ≈ 5.99964e-6`, so it ranks last within its count tier.
+
+This is a "smoothed reciprocal rank fusion" (RRF) style score with smoothing constant K=60 — rank-1 entries contribute ~18× more than rank-1000 entries, rather than 1000×. Membership in an unordered list (Cloudflare Radar) adds a tiny nudge; CrUX buckets weight proportionally to how deep the bucket is.
 
 ## Input lists
 
