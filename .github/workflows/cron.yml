@@ -1,0 +1,14 @@
+name: daily
+on:
+  schedule:
+    - cron: "30 5 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  snapshot:
+    uses: wangmm001/feedcache/.github/workflows/reusable-snapshot.yml@main
+    with:
+      source: aggregate-top-domains

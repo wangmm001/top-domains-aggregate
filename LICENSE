@@ -1,0 +1,12 @@
+Scaffolding (README, workflow yml): MIT.
+
+Data (`data/`): derived cross-list aggregation of 5 upstream top-domain
+feeds. Each input list retains its own terms:
+
+  - Umbrella  — Cisco TOS
+  - Tranco    — CC-BY 4.0 (Pochat et al., NDSS 2019)
+  - Majestic  — CC-BY 4.0 (Majestic-12 Ltd.)
+  - Cloudflare Radar — Cloudflare Radar terms
+  - CrUX      — Google Chrome UX Report terms
+
+Before redistributing this derived file, honor all five licenses above.
